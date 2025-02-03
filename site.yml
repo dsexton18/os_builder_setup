@@ -1,0 +1,82 @@
+---
+- name: Run osbuild_builder role to setup obuild compose build server
+  become: true
+  hosts: all
+  vars:
+    satellite_present: true
+    setup_server_rhsatellite: true
+    setup_server_rhsatellite_host: "foreman.example.com"
+    setup_server_rhsatellite_organization: "Example"
+    setup_server_rhsatellite_environment: "Library"
+    setup_server_rhsatellite_contentview: "composite"
+    foreman_url: "https://foreman.example.com"
+    foreman_user: "admin"
+    foreman_password: "password"
+      #    satellite: false
+
+  tasks:
+    - name: Install latest OS updates.
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+          
+    - name: install packages
+      ansible.builtin.dnf:
+        name:
+          - ipa-client
+          - subscription-manager
+        state: latest
+
+    - name: Disable non Foreman repos
+      community.general.dnf_config_manager:
+        name:
+          - appstream
+          - baseos
+          - extras
+        state: disabled
+
+    - name: Download Katello server CA certificate
+      get_url:
+        url: "https://foreman.example.com/pub/katello-ca-consumer-latest.noarch.rpm"
+        dest: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+        validate_certs: no
+
+    - name: Install the Katello CA certificate
+      ansible.builtin.dnf:
+        name: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+        state: present
+        disable_gpg_check: yes
+ 
+
+    - name: 
+      theforeman.foreman.host: 
+        server_url: "https://foreman.example.com"
+        username: "admin"
+        password: "password"
+        name: "{{ ansible_fqdn }}"
+        domain: "example.com"
+        hostgroup: "all/rhel9/dev"
+        organization: "Example"
+        location: "Example CO"
+        architecture: "x86_64"
+        operatingsystem: "Rocky Linux 9.5"
+        content_source: "foreman.example.com"
+        lifecycle_environment: "Library"
+        content_view: "composite"
+        activation_keys: 
+          - "ak-dev"
+          #interfaces_attributes:
+          #- mac: "{{ ansible_default_ipv4.macaddress }}"
+          #  name: "{{ ansible_fqdn }}"
+          #   ip: "{{ ansible_default_ipv4.address }}"
+          #  subnet: "Home"
+          #  primary: true
+          #   managed: true
+          #  provision: false
+        build: no
+        state: present
+        validate_certs: no
+
+    - name: Run the role
+      ansible.builtin.import_role:
+        name: infra.osbuild.setup_server

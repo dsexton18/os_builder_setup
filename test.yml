@@ -1,0 +1,15 @@
+- hosts: all
+  become: true
+  roles:
+    - role: rhel-system-roles.rhc
+  vars:
+    rhc_auth:
+      activation_keys:
+        keys:
+          - "ak-dev"  # Ensure this variable is defined elsewhere (or via extra-vars)
+    rhc_organization: "Example"  # Ensure this is the proper organization identifier as a string
+    # Optionally, specify other variables if required by your environment:
+    rhc_auto_attach: true
+    rhc_lifecycle_environment: "dev"
+    rhc_content_view: "composite"
+

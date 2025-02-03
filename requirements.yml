@@ -1,0 +1,5 @@
+# requirements.yml
+collections:
+  - name: https://github.com/redhat-cop/infra.osbuild.git
+    type: git
+    version: 2.3.2
