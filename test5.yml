@@ -1,0 +1,51 @@
+---
+- name: Register Rocky Linux 9 host with Foreman using subscription-manager
+  hosts: all    # Replace with your inventory group or host
+  become: yes
+  vars:
+    foreman_org: "Example"                  # Replace with your organization name
+    activation_key: "ak-dev"     # Replace with your activation key
+      #    baseos_repo: "rocky-9-for-x86_64-baseos-rpms"    # Adjust repository name if needed
+      #    appstream_repo: "rocky-9-for-x86_64-appstream-rpms" # Adjust repository name if needed
+
+  tasks:
+    - name: Unregister system (clean up stale consumer profile)
+      command: subscription-manager unregister
+      ignore_errors: yes
+
+    - name: Clean subscription-manager local data
+      command: subscription-manager clean
+      ignore_errors: yes
+
+    - name: Check if system is registered after cleanup
+      command: subscription-manager identity
+      register: sub_identity
+      ignore_errors: yes
+
+    - name: Register system if not registered or force re-registration
+      command: >
+        subscription-manager register --org="{{ foreman_org }}"
+        --activationkey="{{ activation_key }}" --insecure --force
+      when: sub_identity.rc != 0
+      register: reg_result
+
+    - name: Debug registration result
+      debug:
+        msg: "Registration output: {{ reg_result.stdout }}"
+      when: sub_identity.rc != 0
+
+    - name: Attach subscription automatically
+      command: subscription-manager attach --auto
+
+    - name: Refresh subscription data
+      command: subscription-manager refresh
+
+    - name: List enabled repositories for verification
+      command: subscription-manager repos --list-enabled
+      register: enabled_repos
+      changed_when: false
+
+    - name: Display enabled repositories
+      debug:
+        var: enabled_repos.stdout_lines
+

@@ -1,0 +1,30 @@
+---
+- name: Register system with Foreman and enable repositories
+  hosts: all
+  become: yes
+  vars:
+    # Variables for activation key registration
+    activationKey: "ak-dev"       # Replace with your activation key
+    organizationID: "Example"                    # Replace with your organization ID
+    # Define authentication details used by the role
+    rhc_auth:
+      activation_keys:
+        keys:
+          - "{{ activationKey }}"
+    rhc_organization: "{{ organizationID }}"
+    # Optional: Enable auto-attachment if supported by your environment
+    rhc_auto_attach: true
+    # Optional: Specify the lifecycle environment and content view if required
+    # (Uncomment and adjust as needed)
+    rhc_lifecycle_environment: "dev"
+    rhc_content_view: "composite"
+    #
+    # Optional: List repository IDs that should be enabled on the client.
+    # For RHEL8 these are typically named as below. Adjust if using a different product.
+    rhc_repo_enable:
+      - "9 AppStream x86_64 os"
+      - "9 BaseOS x86_64 os"
+
+  roles:
+    - role: rhel-system-roles.rhc
+

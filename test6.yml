@@ -1,0 +1,35 @@
+- name: Register Rocky Linux 9 host to Foreman
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Check if the system is already registered
+      command: subscription-manager identity
+      register: sub_status
+      changed_when: false
+      failed_when: sub_status.rc not in [0, 69]
+
+    - name: Clean stale subscription data if needed
+      command: subscription-manager clean
+      when: sub_status.rc == 69
+
+    - name: Register system if not already registered
+      command: >
+        subscription-manager register --org="Example"
+        --activationkey="ak-dev" --insecure
+      when: sub_status.rc != 0
+      register: register_result
+      changed_when: register_result.rc == 0
+
+    - name: Refresh subscription-manager
+      command: subscription-manager refresh
+      when: register_result.rc == 0
+
+    - name: Display enabled repositories
+      command: subscription-manager repos --list-enabled
+      register: repo_list
+      changed_when: false
+
+    - debug:
+        msg: "{{ repo_list.stdout_lines }}"
+
