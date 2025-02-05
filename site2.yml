@@ -1,0 +1,133 @@
+- name: Run osbuild_builder role to setup osbuild compose build server
+  become: true
+  hosts: all
+  vars:
+    satellite_present: true
+    setup_server_rhsatellite: true
+    setup_server_rhsatellite_host: "foreman.lnx.corp.lan"
+    setup_server_rhsatellite_organization: "Example"
+    setup_server_rhsatellite_environment: "Library"
+    setup_server_rhsatellite_contentview: "composite"
+    foreman_url: "https://foreman.lnx.corp.lan"
+    foreman_user: "admin"
+    foreman_password: "password"
+    foreman_org: "Example"
+    activation_key: "ak-dev"
+
+  tasks:
+    - name: Install latest OS updates
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+
+    - name: Install required packages
+      ansible.builtin.dnf:
+        name:
+          - ipa-client
+          - subscription-manager
+          - python3-toml
+        state: latest
+
+    - name: Disable non-Foreman repos
+      community.general.dnf_config_manager:
+        name:
+          - appstream
+          - baseos
+          - extras
+        state: disabled
+
+    - name: Download Katello server CA certificate
+      ansible.builtin.get_url:
+        url: "https://foreman.lnx.corp.lan/pub/katello-ca-consumer-latest.noarch.rpm"
+        dest: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+        validate_certs: no
+
+    - name: Install the Katello CA certificate
+      ansible.builtin.dnf:
+        name: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+        state: present
+        disable_gpg_check: yes
+    
+    - name: Configure host in Foreman
+      theforeman.foreman.host:
+        server_url: "{{ foreman_url }}"
+        username: "{{ foreman_user }}"
+        password: "{{ foreman_password }}"
+        name: "{{ ansible_fqdn }}"
+        domain: "lnx.corp.lan"
+        hostgroup: "all/rhel9/dev"
+        organization: "{{ foreman_org }}"
+        location: "Example CO"
+        architecture: "x86_64"
+        operatingsystem: "Rocky Linux 9.5"
+        content_source: "foreman.lnx.corp.lan"
+        lifecycle_environment: "Library"
+        content_view: "composite"
+        activation_keys:
+          - "{{ activation_key }}"
+        build: no
+        state: present
+        validate_certs: no
+
+    - name: Unregister system (clean up stale consumer profile)
+      command: subscription-manager unregister
+      ignore_errors: yes
+
+    - name: Clean subscription-manager local data
+      command: subscription-manager clean
+      ignore_errors: yes
+
+    - name: Check if system is registered after cleanup
+      command: subscription-manager identity
+      register: sub_identity
+      ignore_errors: yes
+
+    - name: Register system if not registered or force re-registration
+      command: >
+        subscription-manager register --org="{{ foreman_org }}"
+        --activationkey="{{ activation_key }}" --insecure --force
+      when: sub_identity.rc != 0
+      register: reg_result
+
+    - name: Debug registration result
+      ansible.builtin.debug:
+        msg: "Registration output: {{ reg_result.stdout }}"
+      when: sub_identity.rc != 0
+
+    - name: Refresh subscription data
+      command: subscription-manager refresh
+
+    - name: List enabled repositories for verification
+      command: subscription-manager repos --list-enabled
+      register: enabled_repos
+      changed_when: false
+
+    - name: Display enabled repositories
+      ansible.builtin.debug:
+        var: enabled_repos.stdout_lines
+
+    # - name: Configure host in Foreman
+    #   theforeman.foreman.host:
+    #     server_url: "{{ foreman_url }}"
+    #     username: "{{ foreman_user }}"
+    #     password: "{{ foreman_password }}"
+    #     name: "{{ ansible_fqdn }}"
+    #     domain: "lnx.corp.lan"
+    #     hostgroup: "all/rhel9/dev"
+    #     organization: "{{ foreman_org }}"
+    #     location: "Example CO"
+    #     architecture: "x86_64"
+    #     operatingsystem: "Rocky Linux 9.5"
+    #     content_source: "foreman.lnx.corp.lan"
+    #     lifecycle_environment: "Library"
+    #     content_view: "composite"
+    #     activation_keys:
+    #       - "{{ activation_key }}"
+    #     build: no
+    #     state: present
+#        validate_certs: no
+
+    - name: Run the osbuild setup role
+      ansible.builtin.import_role:
+        name: infra.osbuild.setup_server
+

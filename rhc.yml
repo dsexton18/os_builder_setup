@@ -1,0 +1,21 @@
+---
+- name: Register system to Satellite using fedora.linux_system_roles.rhc role
+  hosts: all
+  become: true
+
+  roles:
+    - role: fedora.linux_system_roles.rhc
+      vars:
+        # The Satellite server hostname or URL
+        rhc_satellite_hostname: "foreman.lnx.corp.lan"
+        # The activation key to be used for registration
+        rhc_activation_keys: "ak-dev"
+        rhc_auth:
+          activation_keys:
+            keys: ["ak-dev"]
+        # The Satellite organization
+        rhc_organization: "Example"
+        rhc_state: present
+        activationkey: "ak-dev"
+        username: "admin"
+        password: "password"
